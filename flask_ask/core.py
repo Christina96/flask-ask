@@ -601,7 +601,14 @@ class Ask(object):
         request_type = self.request.type
 
         if request_type == 'LaunchRequest' and self._launch_view_func:
-            result = self._launch_view_func()
+            try:
+                result = self._launch_view_func()
+            except KeyError as ker_err:
+                _dbgdump(
+                    'The LaunchRequest from the Alexa Service give the Key error: {}.'.format(ker_err))
+            except Exception as err:
+                _dbgdump(
+                    'The LaunchRequest from the Alexa Service give the Exception: {}.'.format(err))
         elif request_type == 'SessionEndedRequest':
             if self._session_ended_view_func:
                 result = self._session_ended_view_func()
@@ -610,16 +617,28 @@ class Ask(object):
         elif request_type == 'IntentRequest' and self._intent_view_funcs:
             try:
                 result = self._map_intent_to_view_func(self.request.intent)()
-            except Exception as e:
-                print("Error:", e)
-                exit()
+            except KeyError as ker_err:
+                _dbgdump(
+                    'The IntentRequest from the Alexa Service give the Key error: {}.'.format(ker_err))
+            except Exception as err:
+                _dbgdump(
+                    'The IntentRequest from the Alexa Service give the Exception: {}.'.format(err))
         elif 'AudioPlayer' in request_type:
             result = self._map_player_request_to_func(self.request.type)()
             # routes to on_playback funcs
             # user can also access state of content.AudioPlayer with current_stream
         if result is not None:
             if isinstance(result, models._Response):
-                return result.render_response()
+                try:
+                    return result.render_response()
+                except KeyError as ker_err:
+                    _dbgdump(
+                        'The Request from the Alexa Service give the Key error: {}.'.format(ker_err))
+                    return '', 404
+                except Exception as err:
+                    _dbgdump(
+                        'The Request from the Alexa Service give the Exception: {}.'.format(err))
+                    return '', 404
             return result
         return "", 400
 
@@ -627,13 +646,13 @@ class Ask(object):
         """Provides appropiate parameters to the intent functions."""
         try:
             view_func = self._intent_view_funcs[intent.name]
-            argspec = inspect.getargspec(view_func)
-            arg_names = argspec.args
-            arg_values = self._map_params_to_view_args(intent.name, arg_names)
-            return partial(view_func, *arg_values)
-        except:
-            print("Error: Please add the ", intent.name, "to run correctly the skill.")
-            exit()
+        except KeyError:
+            _dbgdump('No intent view function found for Intent {}.'.format(intent.name))
+            return None
+        argspec = inspect.getargspec(view_func)
+        arg_names = argspec.args
+        arg_values = self._map_params_to_view_args(intent.name, arg_names)
+        return partial(view_func, *arg_values)
 
     def _map_player_request_to_func(self, player_request_type):
         """Provides appropriate parameters to the on_playback functions."""

@@ -5,13 +5,12 @@ Smoke test using the samples.
 import sys
 import time
 
+import flask_ask
 import os
 import six
 import subprocess
 import unittest
 from requests import post
-
-import flask_ask
 
 launch = {
     "version": "1.0",
@@ -68,9 +67,10 @@ class SmokeTestUsingSamples(unittest.TestCase):
     def setUp(self):
         self.python = sys.executable
         self.env = {'PYTHONPATH': project_root,
-                    'ASK_VERIFY_REQUESTS': 'false',
-                    'SYSTEMROOT': os.getenv('SYSTEMROOT'),
-                    'PATH': os.getenv('PATH')}
+                    'ASK_VERIFY_REQUESTS': 'false'}
+        if os.name == 'nt':
+            self.env['SYSTEMROOT'] = os.getenv('SYSTEMROOT')
+            self.env['PATH'] = os.getenv('PATH')
 
     def _launch(self, sample):
         prefix = os.path.join(project_root, 'samples/')
@@ -123,6 +123,7 @@ class SmokeTestUsingSamples(unittest.TestCase):
         self._launch('helloworld/helloworld.py')
         response = self._post(data=launch)
         self.assertTrue('hello' in self._get_text(response))
+        response.close()
 
     def test_session_sample(self):
         """ Test the Session sample project """
